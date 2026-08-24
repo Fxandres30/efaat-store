@@ -65,7 +65,17 @@ const ProductsModule = (() => {
   }
 
   // ================= VISTA: CATÁLOGO =================
+  // unsubscribeProductsChanged: como router.js todavía no tiene un hook
+  // de "salida de vista" (ver Mapa de migración, Fase Realtime), cada
+  // entrada a /shop se da de baja de la suscripción anterior antes de
+  // crear una nueva — así un solo listener activo reacciona en vivo a
+  // Supabase Realtime (o a que termine la carga inicial) sin acumular
+  // llamadas duplicadas en visitas repetidas.
+  let unsubscribeProductsChanged = null;
   function renderCatalog(category, queryParams = {}) {
+    if (unsubscribeProductsChanged) unsubscribeProductsChanged();
+    unsubscribeProductsChanged = Store.on('products:changed', renderResults);
+
     filters = defaultFilters();
     filters.category = category || null;
     if (queryParams.filter === 'ofertas') filters.discount = true;

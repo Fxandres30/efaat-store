@@ -6,6 +6,20 @@
   Store.init();
   Ui.mountShell();
 
+  // Fase C del mapa de migración: intenta reemplazar el catálogo local
+  // (ya cargado arriba por Store.init() desde localStorage) por el real
+  // de Supabase. Si falla, Store.state queda tal cual lo dejó
+  // Store.init() — ese "no hacer nada" es el fallback, no hay una
+  // segunda siembra acá. Nunca vuelve a escribir en localStorage.
+  CatalogOrchestrator.loadCatalog().then((result) => {
+    if (result.ok) {
+      Router.resolve(); // re-renderiza la vista actual con datos reales
+      CatalogOrchestrator.subscribeToChanges?.();
+    } else {
+      console.warn('[app] catálogo de Supabase no disponible, usando el local:', result.error);
+    }
+  });
+
   // ---------- Rutas de tienda ----------
   Router.add('/', () => Views.renderHome());
   Router.add('/shop', (params, qp) => ProductsModule.renderCatalog(null, qp));

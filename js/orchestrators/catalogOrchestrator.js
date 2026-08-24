@@ -47,5 +47,31 @@ const CatalogOrchestrator = (() => {
     }
   }
 
-  return { loadCatalog };
+  // ---------- Realtime (Fase C: solo products/product_variants/drops) ----------
+  // Supabase → Realtime → acá (re-lee y reemplaza el estado en memoria,
+  // igual que loadCatalog) → Store → UI. Nunca orders/inventory/cart.
+  // No hay lógica de parche fila-por-fila todavía (eso es una mejora de
+  // la Fase de Realtime completa) — cada evento simplemente vuelve a
+  // pedir el catálogo entero, que ya es barato porque son ~30 productos.
+  let channel = null;
+
+  async function subscribeToChanges() {
+    if (channel) return channel; // evita suscripciones duplicadas
+    const supabase = await SupabaseClient.getClient();
+
+    channel = supabase
+      .channel('catalog-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, loadCatalog)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants' }, loadCatalog)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drops' }, loadCatalog)
+      .subscribe();
+
+    return channel;
+  }
+
+  function unsubscribe() {
+    if (channel) { channel.unsubscribe(); channel = null; }
+  }
+
+  return { loadCatalog, subscribeToChanges, unsubscribe };
 })();
