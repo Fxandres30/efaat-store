@@ -56,6 +56,20 @@ const CatalogOrchestrator = (() => {
     }
   }
 
+  // Releída puntual de UN producto directo desde Supabase, ignorando
+  // Store por completo — usada por CheckoutModule justo antes de crear
+  // el pedido para que el precio (y el stock) que se cobra/reserva sea
+  // siempre el real, nunca uno que pudo quedar alterado en memoria del
+  // navegador (Store.state, editable desde DevTools). Reutiliza el
+  // mismo mapeo/sincronización que loadCatalog(), solo que para un id.
+  async function refreshProduct(productId) {
+    const row = await ProductRepository.getProductById(productId);
+    const mapped = ProductService.mapProduct(row);
+    if (mapped.active === false) Store.removeProductLocal(mapped.id);
+    else Store.upsertProductLocal(mapped);
+    return mapped;
+  }
+
   function mapShippingRow(row) {
     return {
       standardShippingCost: Number(row.standard_shipping_cost),
@@ -93,5 +107,5 @@ const CatalogOrchestrator = (() => {
     if (channel) { channel.unsubscribe(); channel = null; }
   }
 
-  return { loadCatalog, subscribeToChanges, unsubscribe };
+  return { loadCatalog, refreshProduct, subscribeToChanges, unsubscribe };
 })();

@@ -176,10 +176,35 @@ const CheckoutModule = (() => {
     Utils.qs('#btnPay').addEventListener('click', processPayment);
   }
 
-  function processPayment() {
+  async function processPayment() {
     const btn = Utils.qs('#btnPay');
     btn.disabled = true; btn.textContent = 'Procesando pago...';
-    const lines = CartModule.items();
+
+    // El navegador NUNCA es la autoridad del precio: Store.state.products
+    // vive en memoria del cliente y es editable desde DevTools (o pudo
+    // quedar desactualizado). Antes de calcular subtotal/total y crear
+    // el pedido, se vuelve a leer cada producto directo de Supabase
+    // (CatalogOrchestrator.refreshProduct) y se recalculan las líneas
+    // sobre ese dato fresco — el precio/stock que había en Store antes
+    // de este punto se descarta por completo.
+    const preLines = CartModule.items();
+    const productIds = [...new Set(preLines.map((l) => l.productId))];
+    try {
+      await Promise.all(productIds.map((id) => CatalogOrchestrator.refreshProduct(id)));
+    } catch (err) {
+      Notify.error('No se pudo validar el precio actual de tus productos. Intenta de nuevo.');
+      btn.disabled = false; btn.textContent = 'Confirmar y pagar';
+      return;
+    }
+
+    const lines = CartModule.items(); // ya resuelve contra el Store recién refrescado
+    if (lines.length !== preLines.length) {
+      Notify.error('Uno de los productos de tu carrito ya no está disponible.');
+      btn.disabled = false; btn.textContent = 'Confirmar y pagar';
+      step = 2; render();
+      return;
+    }
+
     const avail = InventoryModule.checkAvailability(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, qty: l.qty })));
     if (!avail.ok) {
       Notify.error('Uno de los productos ya no tiene stock suficiente.');

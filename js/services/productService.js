@@ -23,7 +23,18 @@ const ProductService = (() => {
     return cat ? cat.slug : null;
   }
 
-  function mapVariant(v) {
+  // CAUSA RAÍZ del precio "congelado" en el carrito: product_variants
+  // tiene su propia columna `price`, pero ningún flujo de escritura la
+  // sincroniza cuando se edita el precio de un producto ya existente
+  // (ver migración 0001, comentario en product_variants.price — el
+  // código nunca le asigna un valor distinto al del producto). Leerla
+  // acá creaba una SEGUNDA fuente de verdad que quedaba desactualizada
+  // apenas Admin cambiaba products.price. Se elimina esa segunda
+  // fuente: el precio de la variante SIEMPRE se deriva en vivo de
+  // products.price (el parámetro `productPrice`), nunca de la columna
+  // product_variants.price. products.price sigue siendo la única
+  // columna que Admin/checkout necesitan leer o escribir.
+  function mapVariant(v, productPrice) {
     const size = isNaN(Number(v.size)) ? v.size : Number(v.size);
     return {
       variantId: v.id,
@@ -32,12 +43,12 @@ const ProductService = (() => {
       colorHex: v.color_hex,
       sku: v.sku,
       stock: v.stock,
-      price: v.price,
+      price: productPrice,
     };
   }
 
   function mapProduct(row) {
-    const variants = (row.product_variants || []).map(mapVariant);
+    const variants = (row.product_variants || []).map((v) => mapVariant(v, row.price));
     return {
       id: row.id,
       sku: row.sku,
