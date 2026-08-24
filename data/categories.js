@@ -1,6 +1,9 @@
 /**
- * categories.js — catálogo de categorías. Diseñado para poder agregar
- * más categorías (camisetas, sudaderas, accesorios...) sin tocar lógica.
+ * categories.js — SEED de categorías, no fuente de verdad. Ya NO se
+ * carga en el navegador (Supabase es la única fuente real, ver
+ * js/repositories/categoryRepository.js) — solo lo lee
+ * backend/scripts/seedCatalog.js para la siembra inicial. Nuevas
+ * categorías se crean desde /admin/categories.
  */
 window.EFAAT_CATEGORIES = [
   {

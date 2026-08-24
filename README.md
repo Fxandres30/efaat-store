@@ -1,181 +1,117 @@
-# EFAAT Store — E-commerce de tenis y gorras (v1 funcional)
+# EFAAT Store — E-commerce de tenis y gorras
 
-Tienda online completa construida con **HTML5 + CSS3 + JavaScript vanilla**,
-sin frameworks ni build step. Toda la aplicación (catálogo, carrito,
-checkout, cuentas, pedidos y panel administrativo) es funcional de verdad:
-no hay botones decorativos ni datos estáticos pegados en el HTML — todo
-vive en objetos JS y se persiste en `localStorage` a través de una capa de
-almacenamiento (`storage.js`) pensada para ser reemplazada por Supabase,
-Firebase o una API propia sin reescribir el resto de la app.
+Tienda online construida con **HTML5 + CSS3 + JavaScript vanilla**, sin
+frameworks ni build step. Arquitectura por capas
+(`repository → service → orchestrator → UI`), con **Supabase como única
+fuente de verdad** del catálogo (productos, categorías, variantes/stock,
+drops, envío, cupones) — ver "Arquitectura" abajo. Checkout, pedidos,
+cuentas de cliente, favoritos y direcciones siguen siendo locales por
+ahora (ver "Qué sigue local y por qué").
 
 ## Cómo ejecutar
 
-No necesita instalación ni servidor:
+```bash
+cd efaat-store
+python3 -m http.server 8080   # o cualquier servidor estático — file:// también funciona
+# abre http://localhost:8080
+```
 
-1. Descomprime el proyecto.
-2. Abre `index.html` directamente en el navegador (doble clic), **o** sírvelo
-   con cualquier servidor estático si prefieres evitar restricciones de
-   `file://` en tu navegador, por ejemplo:
-   ```bash
-   cd efaat-store
-   python3 -m http.server 8080
-   # luego abre http://localhost:8080
-   ```
-3. La primera carga siembra automáticamente productos, categorías, cupones
-   y usuarios demo en `localStorage` (solo ocurre una vez; para reiniciar
-   los datos de demo, borra el localStorage del sitio desde las
-   herramientas de desarrollador del navegador).
+Necesita conexión a internet siempre: las tipografías (Google Fonts) y el
+catálogo (Supabase) se cargan por red. Si Supabase no responde, la tienda
+muestra un estado de error real — ya no hay catálogo local de respaldo.
 
-Requiere conexión a internet solo para cargar las tipografías de Google
-Fonts y las imágenes de producto de demostración (`picsum.photos`); la
-lógica de la tienda funciona igual sin conexión, solo se verán sin estilo
-tipográfico e imágenes rotas.
+### Puesta en marcha de Supabase (una sola vez)
 
-## Usuarios demo
+1. **Catálogo**: corre `backend/scripts/seedCatalog.js --commit` para
+   migrar `data/products.js`/`data/categories.js` a Supabase (o carga tu
+   propio catálogo desde `/admin/products`).
+2. **Envío**: abre `/admin/shipping` como admin y guarda una vez — crea
+   la fila de configuración (no viene sembrada).
+3. **Admin real**: crea un usuario en Supabase Auth con el mismo correo
+   que `EFAAT_CONFIG.demoUsers.admin` (Authentication → Users → Add
+   user) y promuévelo a admin — ver `js/repositories/authRepository.js`
+   para el porqué y el SQL de bootstrap exacto.
+4. **Imágenes**: aplica `supabase/migrations/0002_product_images_storage.sql`
+   (bucket + policies de Storage) antes de usar el gestor de imágenes.
+
+## Usuarios demo (login local — ver "Qué sigue local")
 
 | Rol      | Correo             | Contraseña |
 |----------|---------------------|------------|
 | Cliente  | cliente@demo.com    | 123456     |
 | Admin    | admin@demo.com      | admin123   |
 
-> Estas credenciales son **solo para demostración**. La autenticación de
-> esta v1 guarda usuarios y contraseñas en `localStorage` **en texto
-> plano** — es una simulación de prototipo, no un sistema apto para
-> producción. Ver sección "De prototipo a producción" más abajo.
+> Solo para demostración: la sesión de cliente se guarda en
+> `localStorage` en texto plano. El admin, además, abre una sesión real
+> de Supabase Auth en segundo plano (Fase 0 del informe de
+> arquitectura) para que sus escrituras pasen RLS.
 
-Panel admin: inicia sesión con el usuario admin — el login te lleva
-automáticamente a `#/admin` (un cliente normal va a `#/account`, y si
-intenta entrar a `#/admin` es redirigido de vuelta con un aviso de que no
-tiene permisos).
+## Moneda (COP/USD)
 
-### Panel administrativo
+Selector en el header. El precio maestro **siempre** es COP — en
+Supabase, en `Store.state`, en el pedido creado. La moneda elegida es
+solo presentación (`js/services/currencyService.js`, tasa fija
+`USD_COP_RATE`) y se recuerda en `localStorage` (única preferencia local
+de verdad en todo el proyecto — ver `preferencesService.js`).
 
-Secciones disponibles en `/admin`: **Dashboard**, **Pedidos**,
-**Clientes**, **Productos**, **Inventario**, **Categorías**, **Drops**,
-**Promociones**, **Reseñas**, **Envíos**, **Analytics** y
-**Configuración**. El costo de envío estándar/exprés y el umbral de envío
-gratis se editan desde `/admin/shipping` y afectan de inmediato al
-carrito y al checkout de toda la tienda (`Storage.getShippingConfig()` es
-la única fuente de verdad para esos valores).
+## Gestión de imágenes (admin)
+
+`/admin/products` → Editar producto → sección "Imágenes": subir,
+reemplazar, eliminar, marcar principal, reordenar. Suben a Supabase
+Storage (bucket `product-images`) y la URL se guarda en
+`products.images` (mismo array que ya usan cards/PDP/relacionados — no
+hay una segunda estructura de galería). Requiere la migración 0002
+aplicada y la sesión admin de Supabase activa.
+
+## Arquitectura
+
+```
+js/
+├── core/            env.js, supabaseClient.js, localStore.js (local — ver abajo), appState.js (Store)
+├── repositories/     única capa que llama al SDK de Supabase (product/category/commerce/inventory/image/authRepository)
+├── services/         reglas de negocio de frontend (productService, currencyService, imageService, inventoryService, preferencesService)
+├── orchestrators/     coordinan repositories/services → Store → UI (catalogOrchestrator, adminOrchestrator)
+├── ui/               shell persistente (header/footer/drawers/modal) + componentes (productCard)
+├── modules/           una carpeta por feature (auth, home, catalog, cart, checkout, account, favorites, orders, admin/*)
+├── utils/            helpers puros
+└── app/              router.js, app.js (bootstrap)
+```
+
+`UI → orchestrator → service → repository → Supabase`, siempre en ese
+sentido — ninguna vista consulta Supabase directo, ningún service
+conoce el SDK de Supabase, ningún repository renderiza HTML.
+
+### Qué sigue local y por qué
+
+Checkout/pedidos, sesión/usuarios, favoritos y direcciones siguen en
+`localStorage` (`js/core/localStore.js`, global `Storage`). No es una
+segunda base de datos "temporal que ya migraremos en silencio": es un
+límite técnico documentado. Migrarlos requiere Auth real de Supabase
+para **cada cliente** (no solo admin) y, para pedidos, un RPC de
+creación que hoy no existe en el schema — ambos son trabajo futuro
+explícito, no implementado en esta fase para no arriesgar el checkout
+que ya funciona.
 
 ## Flujo de compra de punta a punta
 
-1. Explora el catálogo (`Tenis` / `Gorras`), filtra por marca, precio,
-   color, disponibilidad, etc.
-2. Abre un producto, elige color y talla/tipo (las variantes agotadas
-   aparecen tachadas y deshabilitadas).
+1. Explora el catálogo (`Tenis` / `Gorras`, desde Supabase), filtra por
+   marca, precio, color, disponibilidad, etc.
+2. Abre un producto, elige color y talla/tipo.
 3. Agrega al carrito o compra directo con "Comprar ahora".
-4. En el carrito verás upsell (combos, "también te puede interesar") y
-   un indicador de cuánto falta para envío gratis.
-5. Checkout en 4 pasos: Datos → Envío → Pago (simulado) → Confirmación.
-   Puedes comprar **como invitado** o iniciar sesión antes.
-6. El pedido queda visible en "Mis pedidos" con número, estado y
-   seguimiento visual (o vía "Seguimiento de pedido" si compraste como
-   invitado).
-7. Desde `/admin/orders` el administrador puede abrir el pedido y cambiar
-   su estado; el cliente ve el cambio reflejado de inmediato la próxima
-   vez que abre su pedido (todo lee del mismo `Store` central).
-
-## Estructura del proyecto
-
-```
-/index.html            Documento único que carga todos los módulos
-/css
-  global.css            Tokens de diseño (color/tipografía), reset, utilidades
-  components.css        Header, cards, botones, modales, drawers, formularios...
-  responsive.css         Media queries mobile-first
-  admin.css              Estilos exclusivos del panel /admin
-/js
-  utils.js               Helpers puros (moneda, fechas, debounce, etc.)
-  storage.js              ÚNICA puerta de entrada a localStorage
-  store.js                 Estado central compartido (pub/sub)
-  notifications.js          Sistema de toasts
-  ui.js                      Header/footer/drawers/modal + tarjeta de producto
-  auth.js                     Sesión, registro, login, direcciones, favoritos
-  inventory.js                  Reglas de stock (reserva / commit / release)
-  products.js                    Filtros, orden, búsqueda, vistas de catálogo/PDP
-  cart.js                         Carrito, totales, cupones, combos, upsell
-  orders.js                        Ciclo de vida del pedido + vistas de pedidos
-  checkout.js                       Checkout de 4 pasos + pago simulado
-  views.js                          Home, login/registro, cuenta, favoritos
-  admin.js                          Panel administrativo completo
-  router.js                         Enrutador hash-based (sin servidor)
-  app.js                            Bootstrap: siembra datos y registra rutas
-/data
-  config.js               Configuración editable (envío, pagos, cupones, estados)
-  categories.js             Categorías y marcas
-  products.js                Generador de los 30 productos de demostración
-```
-
-### Por qué esta arquitectura
-
-- **Sistema de roles real.** Cada usuario tiene `role: 'customer' | 'admin'`.
-  El login redirige según el rol (`#/account` vs `#/admin`), y todas las
-  rutas `/admin/*` están protegidas server-side... bueno, cliente-side por
-  ahora vía `Router` (`opts.adminOnly` + `AuthModule.requireAdmin()`): un
-  cliente que intente entrar a `/admin` es redirigido a `#/account` con un
-  aviso, nunca ve la interfaz administrativa ni por un instante.
-- **`storage.js` es la única capa que toca `localStorage`.** Todo lo demás
-  llama a `Storage.getProducts()`, `Storage.saveOrder()`, etc. Cuando
-  conectes un backend real, reescribes el cuerpo de esas funciones para
-  hacer `fetch`/consultas — las vistas y la lógica de negocio no cambian.
-- **`store.js` es el estado central** que todos los módulos leen y
-  mutan (patrón pub/sub simple). Nadie guarda copias propias de
-  productos/carrito/pedidos.
-- **Los productos son objetos JS con variantes reales** (`talla × color`
-  para tenis, `tipo × color` para gorras), no tarjetas HTML fijas — ver
-  `data/products.js`.
-- **El inventario sigue la regla de reserva/compromiso** (ver
-  `inventory.js`): agregar al carrito nunca descuenta stock; crear el
-  pedido solo reserva (valida disponibilidad); confirmar el pago
-  descuenta de verdad; cancelar un pedido ya comprometido devuelve el
-  inventario.
-
-## De prototipo a producción
-
-Este proyecto está pensado como v1 desacoplable. Los puntos de reemplazo
-son:
-
-1. **`storage.js`** → reemplazar las funciones internas por llamadas a
-   Supabase/Firebase/tu API. El resto de módulos no debería necesitar
-   cambios porque todos pasan por esta capa.
-2. **`auth.js`** → hoy simula login/registro comparando contraseñas en
-   texto plano contra `localStorage`. Reemplazar por Supabase Auth,
-   Firebase Auth, o tu propio backend con hashing real de contraseñas.
-3. **`checkout.js` → `processPayment()`** → hoy simula el resultado del
-   pago con un `setTimeout`. Reemplazar por la integración real con
-   Wompi/Mercado Pago/PSE, manteniendo el mismo contrato: al confirmar el
-   pago se llama a `OrdersModule.updateStatus(order, 'confirmed')`.
-4. **Autorización de admin** → hoy la protección de `/admin/*`
-   (`AuthModule.requireAdmin()` en el `Router`) vive solo en el cliente,
-   como es inevitable en una SPA sin backend. En producción esa misma
-   verificación debe repetirse en el servidor/API (nunca confiar solo en
-   ocultar rutas del lado del cliente).
-
-## Agregar o editar productos
-
-- **Desde el panel admin** (`/admin/products` → "+ Nuevo producto"): la
-  forma recomendada, genera variantes automáticamente a partir de los
-  colores y tallas/tipos que escribas.
-- **Editando el generador de datos demo** (`data/products.js`): útil si
-  quieres cambiar el catálogo de demostración que se siembra en la
-  primera carga. Sigue el mismo patrón `makeProduct({...})` que ya usan
-  los 30 productos existentes.
-- **Guía de tallas de tenis**: editable en `data/config.js` →
-  `EFAAT_CONFIG.sizeGuide.tenis`.
+4. Checkout en 4 pasos: Datos → Envío → Pago (simulado) → Confirmación.
+   Como invitado o con sesión.
+5. El pedido queda en "Mis pedidos" (local) con seguimiento visual.
+6. Desde `/admin/orders` el administrador cambia el estado del pedido.
 
 ## Qué es simulado en esta v1 (a propósito)
 
-- Pagos (tarjeta, PSE, transferencia, contraentrega, Mercado Pago, Wompi):
-  no se procesa ninguna transacción real.
-- Autenticación: sesión guardada en `localStorage`, sin hashing de
-  contraseña ni backend.
-- Envíos: no hay integración con transportadoras; los costos y tiempos
-  son configurables en `data/config.js`.
+- Pagos: no se procesa ninguna transacción real.
+- Autenticación de cliente: sesión local, sin hashing de contraseña.
+- Envíos: sin integración con transportadoras.
+- Tasa de cambio USD/COP: fija, sin proveedor de tasas en tiempo real.
 
 ## Notas de accesibilidad y responsive
 
-- Probado sin overflow horizontal en 320/375/390/414/768/1024/1440px.
 - Estados de foco visibles (`:focus-visible`) en toda la app.
 - Imágenes con `alt`, botones con `aria-label` donde no hay texto visible.
 - `prefers-reduced-motion` respetado (desactiva animaciones).

@@ -2,16 +2,17 @@
  * productService.js — reglas de catálogo: obtener, filtrar, buscar,
  * ordenar, y sobre todo TRADUCIR la forma de las filas de Supabase
  * (snake_case, category_id, product_variants anidado) a la forma
- * exacta que ya esperan las vistas actuales (products.js, ui.js,
- * cart.js...) para no tener que reescribirlas en esta fase.
+ * exacta que ya esperan las vistas (js/modules/catalog/*, js/ui/,
+ * js/modules/cart/...).
  *
- * NO accede a Supabase directamente — todo pasa por ProductRepository.
+ * NO accede a Supabase directamente — todo pasa por ProductRepository
+ * / CategoryRepository.
  *
- * Nota honesta: products/product_variants están vacías en Supabase
- * todavía (no se sembró el catálogo — eso es la Fase C), así que el
- * mapeo de abajo se probó contra la FORMA de la consulta (sin error),
- * no contra una fila real todavía. Cuando haya datos reales hay que
- * re-verificar mapProduct() con un caso real.
+ * applyFilters()/search() son la ÚNICA implementación de filtrado y
+ * búsqueda de catálogo del proyecto — js/modules/catalog/catalogList.js
+ * llama a estas funciones en vez de tener su propia copia (la tenía
+ * antes de la reorganización arquitectónica; era una duplicación ya
+ * señalada en este mismo archivo).
  */
 const ProductService = (() => {
   // ---------- Mapeo Supabase → forma que ya usa el resto de la app ----------
@@ -89,7 +90,12 @@ const ProductService = (() => {
   }
 
   async function getCategories() {
-    return ProductRepository.listCategories();
+    return CategoryRepository.list();
+  }
+
+  async function getAllProductsForAdmin() {
+    const rows = await ProductRepository.listAllForAdmin();
+    return rows.map(mapProduct);
   }
 
   async function getDrops() {
@@ -139,5 +145,8 @@ const ProductService = (() => {
     ));
   }
 
-  return { getAllProducts, getProductById, getCategories, getDrops, mapProduct, mapDrop, applyFilters, search };
+  return {
+    getAllProducts, getAllProductsForAdmin, getProductById, getCategories, getDrops,
+    mapProduct, mapDrop, applyFilters, search,
+  };
 })();

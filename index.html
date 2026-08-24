@@ -15,37 +15,75 @@
 <body>
 <noscript>Esta aplicación necesita JavaScript habilitado para funcionar.</noscript>
 
-<!-- ===== Datos demo (se siembran una sola vez en localStorage) ===== -->
+<!-- ===== Configuración estática (NO es catálogo/comercio — eso es Supabase) ===== -->
 <script src="data/config.js"></script>
-<script src="data/categories.js"></script>
-<script src="data/products.js"></script>
 
 <!-- ===== Núcleo ===== -->
-<script src="js/utils.js"></script>
-<script src="js/storage.js"></script>
-<script src="js/store.js"></script>
-<script src="js/notifications.js"></script>
-<script src="js/ui.js"></script>
-
-<!-- ===== Módulos de negocio ===== -->
-<script src="js/auth.js"></script>
-<script src="js/inventory.js"></script>
-<script src="js/products.js"></script>
-<script src="js/cart.js"></script>
-<script src="js/orders.js"></script>
-<script src="js/checkout.js"></script>
-<script src="js/views.js"></script>
-<script src="js/admin.js"></script>
-
-<!-- ===== Supabase (catálogo) — Fase C del mapa de migración ===== -->
 <script src="js/core/env.js"></script>
 <script src="js/core/supabaseClient.js"></script>
+<script src="js/services/preferencesService.js"></script>
+<script src="js/services/currencyService.js"></script>
+<script src="js/utils/utils.js"></script>
+<script src="js/core/localStore.js"></script>
+<script src="js/core/appState.js"></script>
+
+<!-- ===== Repositories — única capa que habla con Supabase ===== -->
+<script src="js/repositories/authRepository.js"></script>
+<script src="js/repositories/addressRepository.js"></script>
 <script src="js/repositories/productRepository.js"></script>
+<script src="js/repositories/categoryRepository.js"></script>
+<script src="js/repositories/commerceRepository.js"></script>
+<script src="js/repositories/inventoryRepository.js"></script>
+<script src="js/repositories/imageRepository.js"></script>
+
+<!-- ===== Services — reglas de negocio de frontend ===== -->
+<script src="js/services/authService.js"></script>
 <script src="js/services/productService.js"></script>
+<script src="js/services/imageService.js"></script>
+<script src="js/services/inventoryService.js"></script>
+
+<!-- ===== Orchestrators — coordinan repositories/services → Store → UI ===== -->
+<script src="js/orchestrators/authOrchestrator.js"></script>
 <script src="js/orchestrators/catalogOrchestrator.js"></script>
+<script src="js/orchestrators/adminOrchestrator.js"></script>
+
+<!-- ===== UI persistente ===== -->
+<script src="js/ui/notifications.js"></script>
+<script src="js/ui/components/productCard.js"></script>
+<script src="js/ui/shell.js"></script>
+
+<!-- ===== Módulos de negocio / vistas ===== -->
+<script src="js/modules/auth/auth.js"></script>
+<script src="js/modules/auth/authViews.js"></script>
+<script src="js/modules/home/home.js"></script>
+<script src="js/modules/catalog/catalogList.js"></script>
+<script src="js/modules/catalog/productDetail.js"></script>
+<script src="js/modules/catalog/index.js"></script>
+<script src="js/modules/cart/cart.js"></script>
+<script src="js/modules/checkout/checkout.js"></script>
+<script src="js/modules/account/accountViews.js"></script>
+<script src="js/modules/favorites/favoritesViews.js"></script>
+<script src="js/modules/orders/orders.js"></script>
+
+<!-- ===== Admin ===== -->
+<script src="js/modules/admin/shell.js"></script>
+<script src="js/modules/admin/dashboard.js"></script>
+<script src="js/modules/admin/orders.js"></script>
+<script src="js/modules/admin/inventory.js"></script>
+<script src="js/modules/admin/products/imageManager.js"></script>
+<script src="js/modules/admin/products/products.js"></script>
+<script src="js/modules/admin/customers.js"></script>
+<script src="js/modules/admin/categories.js"></script>
+<script src="js/modules/admin/promotions.js"></script>
+<script src="js/modules/admin/drops.js"></script>
+<script src="js/modules/admin/reviews.js"></script>
+<script src="js/modules/admin/shipping.js"></script>
+<script src="js/modules/admin/analytics.js"></script>
+<script src="js/modules/admin/settings.js"></script>
+<script src="js/modules/admin/index.js"></script>
 
 <!-- ===== Router + arranque ===== -->
-<script src="js/router.js"></script>
-<script src="js/app.js"></script>
+<script src="js/app/router.js"></script>
+<script src="js/app/app.js"></script>
 </body>
 </html>

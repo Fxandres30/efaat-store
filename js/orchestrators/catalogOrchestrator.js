@@ -1,58 +1,75 @@
 /**
  * catalogOrchestrator.js — coordina
- * ProductRepository → ProductService → Store → UI para el catálogo.
- * No hace consultas a Supabase acá (eso es del repository) y no
- * contiene reglas de negocio (eso es del service).
+ * ProductRepository/CategoryRepository/CommerceRepository →
+ * ProductService → Store → UI para catálogo y configuración
+ * comercial (envío, cupones). No hace consultas a Supabase acá (eso
+ * es del repository) y no contiene reglas de negocio (eso es del
+ * service).
  *
- * Fuente de verdad / fallback (ver Fase B):
- *   - Si Supabase responde, sobreescribe Store.state EN MEMORIA.
- *   - Si falla, NO toca Store — el catálogo que Store.init() ya cargó
- *     desde localStorage sigue exactamente como estaba. Ese "no hacer
- *     nada" ES el fallback pedido; no hay una segunda implementación
- *     de siembra acá.
- *   - Nunca se llama a Storage.saveProducts()/saveCategories()/etc.
- *     desde este archivo — los datos de Supabase no se vuelven a
- *     escribir en localStorage bajo ningún caso.
- *
- * Nota de alcance: todavía no hay ningún <script> en index.html que
- * cargue esta cadena de archivos en la página real (ver informe de
- * Fase B) — por ahora existe y se puede probar de forma aislada, pero
- * no se ejecuta todavía en la tienda en vivo.
+ * FUENTE ÚNICA — sin fallback local: Supabase es la única fuente de
+ * verdad de products/categories/drops/shipping_settings/coupons. Si
+ * la carga falla, NO se inventa ni se reutiliza ningún dato local —
+ * Store.state queda con catalogError seteado y catalogLoading:false,
+ * y las vistas (home/catálogo/PDP/carrito) deben mostrar un estado de
+ * error real, nunca datos de relleno. Nunca se escribe en
+ * localStorage desde este archivo.
  */
 const CatalogOrchestrator = (() => {
   async function loadCatalog() {
-    Store.state.catalogSource = Store.state.catalogSource || 'local';
+    Store.state.catalogLoading = true;
     Store.state.catalogError = null;
 
     try {
-      const [products, categories, drops] = await Promise.all([
+      const [products, categories, drops, shippingConfig, coupons] = await Promise.all([
         ProductService.getAllProducts(),
         ProductService.getCategories(),
         ProductService.getDrops(),
+        CommerceRepository.getShippingSettings(),
+        CommerceRepository.listCoupons(),
       ]);
 
       Store.state.products = products;
       Store.state.categories = categories;
       Store.state.drops = drops;
+      Store.state.shippingConfig = shippingConfig ? mapShippingRow(shippingConfig) : null;
+      Store.state.coupons = coupons;
       Store.state.catalogSource = 'supabase';
+      Store.state.catalogLoading = false;
 
       Store.emit('products:changed');
+      Store.emit('categories:changed');
       Store.emit('drops:changed');
+      Store.emit('shipping:changed');
+      Store.emit('coupons:changed');
 
-      return { ok: true, source: 'supabase', productCount: products.length };
+      // Reseñas demo: se siembran una sola vez, ahora que hay ids de
+      // producto reales (uuid de Supabase) — ver core/localStore.js.
+      Storage.seedReviewsFromProducts(products);
+
+      return { ok: true, productCount: products.length };
     } catch (err) {
-      console.error('[CatalogOrchestrator] Supabase no disponible, se conserva el catálogo local:', err.message);
+      console.error('[CatalogOrchestrator] no se pudo cargar el catálogo desde Supabase:', err.message);
       Store.state.catalogError = err.message;
-      return { ok: false, source: 'local', error: err.message };
+      Store.state.catalogLoading = false;
+      Store.emit('products:changed'); // las vistas re-renderizan y muestran el estado de error
+      return { ok: false, error: err.message };
     }
   }
 
-  // ---------- Realtime (Fase C: solo products/product_variants/drops) ----------
+  function mapShippingRow(row) {
+    return {
+      standardShippingCost: Number(row.standard_shipping_cost),
+      expressShippingCost: Number(row.express_shipping_cost),
+      freeShippingThreshold: Number(row.free_shipping_threshold),
+    };
+  }
+
+  // ---------- Realtime ----------
   // Supabase → Realtime → acá (re-lee y reemplaza el estado en memoria,
-  // igual que loadCatalog) → Store → UI. Nunca orders/inventory/cart.
-  // No hay lógica de parche fila-por-fila todavía (eso es una mejora de
-  // la Fase de Realtime completa) — cada evento simplemente vuelve a
-  // pedir el catálogo entero, que ya es barato porque son ~30 productos.
+  // igual que loadCatalog) → Store → UI. Nunca orders/inventory/cart
+  // (esos siguen siendo locales, ver informe de arquitectura). No hay
+  // parche fila-por-fila — cada evento vuelve a pedir el catálogo
+  // entero, barato porque son ~30 productos.
   let channel = null;
 
   async function subscribeToChanges() {
@@ -63,7 +80,10 @@ const CatalogOrchestrator = (() => {
       .channel('catalog-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, loadCatalog)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variants' }, loadCatalog)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, loadCatalog)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'drops' }, loadCatalog)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'shipping_settings' }, loadCatalog)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, loadCatalog)
       .subscribe();
 
     return channel;

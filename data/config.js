@@ -1,20 +1,13 @@
 /**
- * config.js — Configuración general de la tienda.
- * Editable sin tocar lógica de negocio. Cuando se conecte un backend real,
- * este archivo pasa a ser la respuesta de un endpoint /config.
+ * config.js — Configuración ESTÁTICA de la tienda (métodos de pago,
+ * guía de tallas, estados de pedido, credenciales demo). NO es
+ * catálogo ni comercio — envío y cupones viven en Supabase
+ * (shipping_settings/coupons, ver js/repositories/commerceRepository.js)
+ * desde la reorganización arquitectónica; moneda vive en
+ * js/services/currencyService.js. No dupliques acá nada que ya tenga
+ * fila real en Supabase.
  */
 window.EFAAT_CONFIG = {
-  storeName: 'EFAAT',
-  storeTagline: 'STORE',
-  currency: 'COP',
-  currencySymbol: '$',
-  locale: 'es-CO',
-
-  // Envío
-  freeShippingThreshold: 250000,
-  standardShippingCost: 12900,
-  expressShippingCost: 22900,
-
   // Guía de tallas de tenis — fácilmente editable
   sizeGuide: {
     tenis: [
@@ -41,13 +34,6 @@ window.EFAAT_CONFIG = {
     { id: 'wompi',       label: 'Wompi',                       icon: '⚡', note: 'Pagos en línea Colombia' },
   ],
 
-  // Cupones demo
-  coupons: [
-    { code: 'WELCOME10', type: 'percent', value: 10, minSubtotal: 0,      active: true, label: '10% de descuento de bienvenida' },
-    { code: 'ENVIOGRATIS', type: 'free_shipping', value: 0, minSubtotal: 0, active: true, label: 'Envío gratis' },
-    { code: 'STREET20', type: 'percent', value: 20, minSubtotal: 300000, active: true, label: '20% en compras desde $300.000' },
-  ],
-
   orderNumberPrefix: 'EF',
 
   // Estados de pedido en orden de flujo normal
@@ -64,6 +50,11 @@ window.EFAAT_CONFIG = {
     { key: 'returned',         label: 'Devuelto',           group: 'devuelto' },
   ],
 
+  // Documentación de las credenciales demo — ya NO se leen en código
+  // (Fase 1, informe de arquitectura: el login es Supabase Auth real,
+  // sin seed local de usuarios). Sirven como referencia de qué
+  // usuarios crear en el dashboard de Supabase Auth para que el hint
+  // de /login siga siendo cierto.
   demoUsers: {
     customer: { email: 'cliente@demo.com', password: '123456', name: 'Cliente Demo' },
     admin:    { email: 'admin@demo.com',    password: 'admin123', name: 'Admin EFAAT' },

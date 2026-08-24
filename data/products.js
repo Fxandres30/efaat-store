@@ -1,9 +1,14 @@
 /**
- * products.js (data) — genera el catálogo de demostración.
+ * products.js (data) — SEED de catálogo de demostración, no fuente de
+ * verdad. Este archivo YA NO se carga en el navegador (Supabase es la
+ * única fuente real de products/product_variants, ver
+ * js/repositories/productRepository.js) — solo lo lee
+ * backend/scripts/seedCatalog.js (Node, vía `fs.readFileSync` + `vm`,
+ * nunca como `<script>` de la página) para poblar Supabase la primera
+ * vez. Editar este archivo cambia lo que ese script migra, no lo que
+ * ve un cliente real hoy — eso se administra desde /admin/products.
  * Los productos son objetos JS con estructura genérica + variantes reales
- * (talla × color), NO son elementos HTML fijos. Ver storage.js: esto se
- * siembra una sola vez en localStorage y desde ahí la app trabaja con la
- * "base de datos" persistida, lista para ser reemplazada por una API real.
+ * (talla × color), NO son elementos HTML fijos.
  */
 (function () {
   const COLORS = {
@@ -25,6 +30,14 @@
   function pick(arr, n) { return arr.slice(0, n); }
   function skuCode(str) { return str.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3); }
   function slugify(str) { return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
+
+  // Misma fórmula que backend/scripts/updateProductImages.js — si se
+  // cambia acá, cambiar también allá para que data/products.js (seed
+  // local) y Supabase (fuente real) sigan mostrando lo mismo.
+  function buildProductImages(category, seedNum) {
+    const keyword = category === 'gorras' ? 'cap' : 'sneakers';
+    return [1, 2, 3].map((n) => `https://loremflickr.com/900/900/${keyword}?lock=${seedNum * 10 + n}`);
+  }
 
   function buildVariants(skuBase, colors, sizes, price) {
     const variants = [];
@@ -60,7 +73,6 @@
     const sizes = opts.category === 'tenis' ? (opts.sizes || TENIS_SIZES) : (opts.sizes || CAP_FITS);
     const variants = buildVariants(skuBase, colors, sizes, opts.price);
     const discount = opts.comparePrice ? Math.round(100 - (opts.price / opts.comparePrice) * 100) : 0;
-    const imgSeed = slugify(opts.brand + '-' + opts.name + '-' + seedCounter);
 
     return {
       id,
@@ -72,7 +84,14 @@
       price: opts.price,
       comparePrice: opts.comparePrice || null,
       discount,
-      images: [1, 2, 3].map((n) => `https://picsum.photos/seed/${imgSeed}-${n}/900/900`),
+      // Fotos reales y coherentes con la categoría (no aleatorias sin
+      // relación): loremflickr.com sirve fotos de Flickr con licencia
+      // libre, filtradas por palabra clave. "lock" fija una foto
+      // específica y estable por posición — mismo mecanismo que antes
+      // hacía el "seed" de picsum, pero ahora la palabra clave importa.
+      // Si en el futuro hay fotografía real de producto, esto se
+      // reemplaza por Supabase Storage (ver informe de esta fase).
+      images: buildProductImages(opts.category, seedCounter),
       colors,
       sizes,
       variants,
