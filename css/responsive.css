@@ -1,0 +1,63 @@
+/* ==========================================================================
+   EFAAT STORE — responsive.css
+   Mobile-first overrides. Breakpoints: 1024 / 768 / 414 / 375 / 320
+   ========================================================================== */
+
+@media (max-width:1024px){
+  .catalog-layout{ grid-template-columns:1fr; }
+  .filters-panel{
+    position:fixed; top:0; left:0; bottom:0; width:min(320px,86vw); background:var(--c-bg-raised);
+    z-index:220; padding:20px; overflow:auto; transform:translateX(-100%); transition:transform var(--t-med) var(--ease);
+    border-right:1px solid var(--c-border);
+  }
+  .filters-panel.open{ transform:translateX(0); }
+  .filters-toggle-mobile{ display:inline-flex; }
+  .checkout-layout{ grid-template-columns:1fr; }
+  .summary-card{ position:static; order:-1; }
+  .pd-layout{ grid-template-columns:1fr; gap:26px; }
+  .account-layout{ grid-template-columns:1fr; }
+  .account-nav{ flex-direction:row; overflow:auto; }
+  .footer-grid{ grid-template-columns:1fr 1fr; }
+}
+
+@media (max-width:860px){
+  .main-nav{ display:none; }
+  .hamburger{ display:flex; }
+  .account-label{ display:none; }
+}
+
+@media (max-width:768px){
+  :root{ --header-h:60px; }
+  .section{ padding:38px 0; }
+  .hero{ min-height:78vh; }
+  .hero-bg{ grid-template-columns:1fr; }
+  .grid-products{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .cat-tiles{ grid-template-columns:1fr; }
+  .benefits{ grid-template-columns:1fr 1fr; }
+  .combo-card{ grid-template-columns:80px 1fr; }
+  .combo-card .btn{ grid-column:1/-1; }
+  .footer-grid{ grid-template-columns:1fr 1fr; gap:22px; }
+  .order-row{ grid-template-columns:auto 1fr; row-gap:8px; }
+  .order-row > *:nth-child(3), .order-row > *:nth-child(4){ grid-column:2; justify-self:start; }
+}
+
+@media (max-width:414px){
+  .grid-products{ grid-template-columns:repeat(2,1fr); }
+  .hero-ctas{ flex-direction:column; }
+  .hero-ctas .btn{ width:100%; }
+  .benefits{ grid-template-columns:1fr 1fr; }
+  .footer-grid{ grid-template-columns:1fr; }
+  .drop-inner{ flex-direction:column; align-items:flex-start; }
+  .modal-box{ padding:20px; }
+  .cart-line{ grid-template-columns:52px 1fr; }
+  .cart-line-remove{ grid-column:1/-1; text-align:left; }
+}
+
+@media (max-width:375px){
+  .hero-title{ font-size:38px; }
+  .section-title{ font-size:26px; }
+}
+
+/* Guard against accidental horizontal scroll everywhere */
+body{ max-width:100vw; }
+img,video{ max-width:100%; }

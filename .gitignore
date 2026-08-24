@@ -1,0 +1,11 @@
+# Secrets — nunca deben subirse al repositorio
+.env
+.env.*
+!.env.example
+
+# Dependencias (por si se agrega un backend Node más adelante)
+node_modules/
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
